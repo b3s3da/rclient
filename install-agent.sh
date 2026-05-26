@@ -2,10 +2,10 @@
 # rclient-agent — one-shot installer for boxes you want to manage.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/b3s3da/rclient/main/install-agent.sh | sudo sh
+#   curl -fsSL https://raw.githubusercontent.com/USER/rclient/main/install-agent.sh | sudo sh
 #
 # Or with the connect blob inline:
-#   curl -fsSL https://raw.githubusercontent.com/b3s3da/rclient/main/install-agent.sh \
+#   curl -fsSL https://raw.githubusercontent.com/USER/rclient/main/install-agent.sh \
 #     | sudo sh -s -- --connect eyJ1...
 #
 # What it does:

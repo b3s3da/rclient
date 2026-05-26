@@ -25,7 +25,7 @@
 #   --no-up                   stop after writing config; don't run docker compose
 set -eu
 
-REPO="${RCLIENT_REPO:-https://github.com/YOUR_USER/rclient.git}"
+REPO="${RCLIENT_REPO:-https://github.com/b3s3da/rclient.git}"
 TARGET_DIR="${RCLIENT_DIR:-rclient}"
 DOMAIN=""
 TLS_MODE=""
