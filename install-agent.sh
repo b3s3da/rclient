@@ -88,7 +88,13 @@ chmod +x "$TMP/$ASSET"
 if [ -n "$CONNECT" ]; then
 	"$TMP/$ASSET" install --connect "$CONNECT"
 else
-	# Make sure the prompt can read from the user even when stdin is a pipe
-	# (curl|sh) — install_unix.go reads /dev/tty for the secret.
-	"$TMP/$ASSET" install
+	# When the user piped this script through curl | sh, our stdin is
+	# closed pipe — no good for asking for a secret. Re-attach stdin to
+	# the controlling terminal so the binary's prompt works.
+	if [ -e /dev/tty ]; then
+		"$TMP/$ASSET" install < /dev/tty
+	else
+		echo "no TTY available; pass --connect <blob> instead" >&2
+		exit 1
+	fi
 fi
