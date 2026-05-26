@@ -43,10 +43,11 @@ KillMode=control-group
 TimeoutStopSec=10
 StateDirectory=rclient
 StateDirectoryMode=0700
-NoNewPrivileges=true
-ProtectSystem=full
-ProtectHome=true
-PrivateTmp=true
+# Note: we deliberately do NOT enable ProtectHome / ProtectSystem here.
+# The agent gives an interactive root shell by design — sandboxing the
+# parent doesn't add real security, but it would break any tool the
+# operator runs that touches /root, /home, /usr/local, etc.
+NoNewPrivileges=false
 
 [Install]
 WantedBy=multi-user.target
