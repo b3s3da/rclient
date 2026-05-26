@@ -1,0 +1,19 @@
+# TLS using a certificate you already have.
+# `setup.sh` mounts a host directory at /certs (read-only). Place fullchain
+# and key as /certs/fullchain.pem and /certs/privkey.pem. No ACME runs.
+{
+	auto_https disable_redirects
+	servers {
+		protocols h1
+	}
+}
+
+r.example.com:13337 {
+	tls /certs/fullchain.pem /certs/privkey.pem
+
+	encode zstd gzip
+
+	reverse_proxy rclient:8080 {
+		header_up X-Real-IP {remote}
+	}
+}

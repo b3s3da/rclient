@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b0f1a">
+  <title>rclient — sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-body">
+  <div class="bg-blobs" aria-hidden="true">
+    <div class="grid"></div>
+    <div class="blob blob--1"></div>
+    <div class="blob blob--2"></div>
+    <div class="blob blob--3"></div>
+  </div>
+
+  <main class="login">
+    <form id="loginform" class="login__card glass" autocomplete="off">
+      <div class="login__brand">
+        <span class="logo__mark">r</span>
+        <span class="logo__text">r<span>client</span></span>
+      </div>
+      <span class="eyebrow">Sign in</span>
+      <h1 class="login__title">Welcome back.</h1>
+      <p class="login__lead">Enter the credentials your server bootstrap printed to you.</p>
+
+      <label class="field">
+        <span>Username</span>
+        <input id="user" name="user" type="text" autocomplete="username" required spellcheck="false" autocapitalize="off">
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </label>
+
+      <button id="submit" type="submit" class="btn btn--primary">Sign in</button>
+      <p id="err" class="login__err" role="alert" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <script src="login.js"></script>
+</body>
+</html>

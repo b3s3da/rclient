@@ -1,0 +1,216 @@
+#!/bin/sh
+# rclient — one-shot installer.
+#
+# Usage on a fresh VPS:
+#   curl -fsSL https://raw.githubusercontent.com/USER/rclient/main/setup.sh | sh
+#
+# Or, if you already cloned the repo:
+#   ./setup.sh
+#
+# What it does:
+#   1. Clones the repo into ./rclient if you ran it via curl|sh.
+#   2. Asks for the public host:port and TLS strategy.
+#   3. Generates random paths/token/password, writes deploy/.env.
+#   4. Picks the right Caddyfile + docker compose override.
+#   5. Runs `docker compose up -d --build`.
+#   6. Prints panel credentials and an agent connect blob.
+#
+# Flags (all optional, all also work non-interactively):
+#   --domain HOST:PORT        public address agents will dial
+#   --tls dns-cloudflare|http01|byo
+#   --cf-token TOKEN          for --tls dns-cloudflare
+#   --cert-dir PATH           for --tls byo (must contain fullchain.pem + privkey.pem)
+#   --repo URL                git repo to clone (defaults to the upstream)
+#   --dir PATH                where to clone (defaults to ./rclient)
+#   --no-up                   stop after writing config; don't run docker compose
+set -eu
+
+REPO="${RCLIENT_REPO:-https://github.com/YOUR_USER/rclient.git}"
+TARGET_DIR="${RCLIENT_DIR:-rclient}"
+DOMAIN=""
+TLS_MODE=""
+CF_TOKEN=""
+CERT_DIR=""
+NO_UP=0
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--domain)    DOMAIN="$2";    shift 2 ;;
+		--tls)       TLS_MODE="$2";  shift 2 ;;
+		--cf-token)  CF_TOKEN="$2";  shift 2 ;;
+		--cert-dir)  CERT_DIR="$2";  shift 2 ;;
+		--repo)      REPO="$2";      shift 2 ;;
+		--dir)       TARGET_DIR="$2";shift 2 ;;
+		--no-up)     NO_UP=1;        shift ;;
+		-h|--help)
+			grep '^#' "$0" | sed 's/^# \{0,1\}//'
+			exit 0 ;;
+		*) echo "unknown arg: $1" >&2; exit 2 ;;
+	esac
+done
+
+die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+have openssl || die "openssl is required"
+
+# --- bootstrap: if we're not already inside the repo, clone it. ---
+# We detect "inside the repo" by the presence of deploy/docker-compose.yml.
+if [ ! -f "deploy/docker-compose.yml" ]; then
+	have git || die "git is required to clone the repo"
+	if [ -d "$TARGET_DIR/.git" ]; then
+		echo "==> using existing $TARGET_DIR"
+	else
+		echo "==> cloning $REPO into $TARGET_DIR"
+		git clone --depth=1 "$REPO" "$TARGET_DIR"
+	fi
+	cd "$TARGET_DIR"
+fi
+
+have docker || die "docker is required (https://get.docker.com)"
+docker compose version >/dev/null 2>&1 || die "docker compose plugin is required"
+
+# --- prompt for missing inputs ---
+
+if [ -z "$DOMAIN" ]; then
+	printf "Public host:port (e.g. r.example.com:13337): "
+	read DOMAIN < /dev/tty
+fi
+[ -n "$DOMAIN" ] || die "domain is required"
+HOST="${DOMAIN%%:*}"
+PORT="${DOMAIN##*:}"
+[ "$PORT" = "$DOMAIN" ] && PORT="13337"
+
+if [ -z "$TLS_MODE" ]; then
+	cat <<EOF
+
+How do you want to get a TLS certificate?
+  1) Cloudflare DNS-01  — domain is on Cloudflare; needs an API token.
+                          Works even if ports 80/443 are busy.
+  2) HTTP-01 challenge  — simplest; needs port 80 free on this VPS.
+  3) Bring your own     — point me at a directory with fullchain.pem and
+                          privkey.pem. No ACME runs.
+
+EOF
+	printf "Choice [1/2/3]: "
+	read choice < /dev/tty
+	case "$choice" in
+		1) TLS_MODE=dns-cloudflare ;;
+		2) TLS_MODE=http01 ;;
+		3) TLS_MODE=byo ;;
+		*) die "invalid choice" ;;
+	esac
+fi
+
+case "$TLS_MODE" in
+	dns-cloudflare|http01|byo) : ;;
+	*) die "--tls must be one of: dns-cloudflare, http01, byo" ;;
+esac
+
+if [ "$TLS_MODE" = "dns-cloudflare" ] && [ -z "$CF_TOKEN" ]; then
+	printf "Cloudflare API token (Zone:Read + Zone:DNS:Edit on the zone): "
+	read CF_TOKEN < /dev/tty
+	[ -n "$CF_TOKEN" ] || die "cf token is required"
+fi
+
+if [ "$TLS_MODE" = "byo" ] && [ -z "$CERT_DIR" ]; then
+	printf "Directory with fullchain.pem + privkey.pem: "
+	read CERT_DIR < /dev/tty
+	[ -n "$CERT_DIR" ] || die "cert dir is required"
+fi
+if [ "$TLS_MODE" = "byo" ]; then
+	for f in fullchain.pem privkey.pem; do
+		[ -f "$CERT_DIR/$f" ] || die "missing $CERT_DIR/$f"
+	done
+fi
+
+# --- generate config ---
+
+DEPLOY_DIR="deploy"
+ENV_FILE="$DEPLOY_DIR/.env"
+
+if [ -f "$ENV_FILE" ]; then
+	printf "%s already exists — overwrite? [y/N]: " "$ENV_FILE"
+	read ans < /dev/tty
+	case "$ans" in y|Y|yes|YES) : ;; *) die "aborted" ;; esac
+fi
+
+AGENT_PATH="/ws/$(openssl rand -hex 16)"
+PANEL_PATH="/ui/$(openssl rand -hex 16)"
+AGENT_TOKEN="$(openssl rand -hex 32)"
+PANEL_USER="admin"
+PANEL_PASS="$(openssl rand -base64 32 | tr -d '=+/' | cut -c1-28)"
+
+case "$TLS_MODE" in
+	dns-cloudflare)
+		OVERRIDE="compose.dns-cloudflare.yml"
+		CADDY_TEMPLATE="Caddyfile.dns-cloudflare" ;;
+	http01)
+		OVERRIDE="compose.http01.yml"
+		CADDY_TEMPLATE="Caddyfile.http01" ;;
+	byo)
+		OVERRIDE="compose.byo.yml"
+		CADDY_TEMPLATE="Caddyfile.byo" ;;
+esac
+
+# Render Caddyfile from the chosen template — replace placeholder host/port.
+sed -e "s|r\\.example\\.com|$HOST|g" \
+    -e "s|:13337|:$PORT|g" \
+    "$DEPLOY_DIR/$CADDY_TEMPLATE" > "$DEPLOY_DIR/Caddyfile"
+
+umask 077
+{
+	echo "# Generated by setup.sh on $(date -u +%Y-%m-%dT%H:%M:%SZ)."
+	echo "# Treat this file as a secret. Don't commit it."
+	echo
+	echo "COMPOSE_FILE=docker-compose.yml:$OVERRIDE"
+	echo
+	echo "RCLIENT_AGENT_PATH=$AGENT_PATH"
+	echo "RCLIENT_PANEL_PATH=$PANEL_PATH"
+	echo "RCLIENT_AGENT_TOKEN=$AGENT_TOKEN"
+	echo "RCLIENT_PANEL_USER=$PANEL_USER"
+	echo "RCLIENT_PANEL_PASS=$PANEL_PASS"
+	[ "$TLS_MODE" = "dns-cloudflare" ] && echo "CF_API_TOKEN=$CF_TOKEN"
+	[ "$TLS_MODE" = "byo" ]            && echo "RCLIENT_CERT_DIR=$CERT_DIR"
+} > "$ENV_FILE"
+chmod 0600 "$ENV_FILE"
+
+echo "✓ wrote $ENV_FILE"
+echo "✓ wrote $DEPLOY_DIR/Caddyfile (mode: $TLS_MODE)"
+
+# --- start the stack ---
+
+if [ "$NO_UP" -eq 0 ]; then
+	echo
+	echo "==> docker compose up -d --build"
+	(cd "$DEPLOY_DIR" && docker compose up -d --build)
+fi
+
+# --- print credentials and connect blob ---
+
+URL="wss://${DOMAIN}${AGENT_PATH}"
+PANEL_URL="https://${DOMAIN}${PANEL_PATH}/"
+
+# URL-safe base64 of {"url":..,"token":..}, padding stripped — only
+# [A-Za-z0-9_-] characters, so it's safe to paste into a shell unquoted.
+JSON=$(printf '{"url":"%s","token":"%s"}' "$URL" "$AGENT_TOKEN")
+CONNECT=$(printf '%s' "$JSON" | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+
+cat <<EOF
+
+────────────────────────────────────────────────────────────────────────
+  Panel
+    URL:      $PANEL_URL
+    user:     $PANEL_USER
+    password: $PANEL_PASS
+
+  Add an agent (paste on each box; binary from the Releases page):
+
+    sudo ./rclient-agent install --connect $CONNECT
+
+────────────────────────────────────────────────────────────────────────
+EOF
+
+if [ "$NO_UP" -eq 0 ]; then
+	echo "Tail logs with:  cd $(pwd)/$DEPLOY_DIR && docker compose logs -f"
+fi

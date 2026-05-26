@@ -1,0 +1,27 @@
+# TLS via HTTP-01 challenge.
+# Caddy listens on 80 to handle ACME challenges and on 13337 to serve the
+# panel itself. The 80 listener also redirects http://r.example.com to the
+# https:// panel URL so a typo in the address bar still works.
+{
+	auto_https disable_redirects
+	servers {
+		protocols h1
+	}
+}
+
+http://r.example.com {
+	# This block exists so Caddy keeps :80 open for the ACME HTTP-01
+	# challenge (Caddy serves /.well-known/acme-challenge/* automatically).
+	# Anything else that lands here gets sent to the real panel.
+	redir https://{host}:13337{uri} permanent
+}
+
+r.example.com:13337 {
+	# Default tls block: Caddy will pick HTTP-01 + TLS-ALPN-01 automatically
+	# because we didn't ask for a DNS challenge.
+	encode zstd gzip
+
+	reverse_proxy rclient:8080 {
+		header_up X-Real-IP {remote}
+	}
+}

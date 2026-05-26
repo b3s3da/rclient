@@ -1,0 +1,20 @@
+# TLS via Cloudflare DNS-01.
+# Requires a Caddy build with the cloudflare DNS plugin (set in compose).
+{
+	auto_https disable_redirects
+	servers {
+		protocols h1
+	}
+}
+
+r.example.com:13337 {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+
+	encode zstd gzip
+
+	reverse_proxy rclient:8080 {
+		header_up X-Real-IP {remote}
+	}
+}

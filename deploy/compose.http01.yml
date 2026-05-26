@@ -1,0 +1,10 @@
+# Override: TLS via HTTP-01 challenge.
+# Standard Caddy image (no DNS plugins needed). Port 80 has to be free on
+# this VPS — Caddy uses it both for the ACME challenge and to serve a
+# permanent redirect to the panel port.
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "13337:13337"

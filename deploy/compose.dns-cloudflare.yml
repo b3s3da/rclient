@@ -1,0 +1,11 @@
+# Override: TLS via Cloudflare DNS-01.
+# Picks the Caddy image with the Cloudflare DNS plugin baked in, exposes
+# only the panel port (we don't need 80 for the ACME challenge), passes
+# the CF API token through.
+services:
+  caddy:
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    ports:
+      - "13337:13337"
+    environment:
+      CF_API_TOKEN: ${CF_API_TOKEN:?set in .env}

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b0f1a">
+  <title>rclient</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="xterm.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-blobs" aria-hidden="true">
+    <div class="grid"></div>
+    <div class="blob blob--1"></div>
+    <div class="blob blob--2"></div>
+    <div class="blob blob--3"></div>
+  </div>
+
+  <div id="app">
+    <aside id="sidebar" class="glass">
+      <div class="brand">
+        <span class="logo__mark">r</span>
+        <span class="logo__text">r<span>client</span></span>
+        <button id="logout" class="logout" title="Sign out" aria-label="Sign out">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+      <div id="agents"></div>
+      <div id="status-row" class="status-row">
+        <div id="status" class="status">connecting…</div>
+        <button id="addbtn" class="addbtn" type="button" title="Add device">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Add</span>
+        </button>
+      </div>
+    </aside>
+
+    <main id="main">
+      <section id="info" class="info">
+        <div class="empty">
+          <span class="eyebrow">Idle</span>
+          <h1>No agent selected</h1>
+          <p>Pick a host on the left to inspect metrics and open a shell.</p>
+        </div>
+      </section>
+
+      <section id="metrics" class="metrics hidden">
+        <div class="kpi glass"><span>cpu</span><strong id="m_cpu">—</strong></div>
+        <div class="kpi glass"><span>mem</span><strong id="m_mem">—</strong></div>
+        <div class="kpi glass"><span>disk</span><strong id="m_disk">—</strong></div>
+        <div class="kpi glass"><span>load</span><strong id="m_load">—</strong></div>
+        <div class="kpi glass"><span>uptime</span><strong id="m_up">—</strong></div>
+      </section>
+
+      <section id="shell" class="shell glass hidden">
+        <header class="shell__head">
+          <span class="dot dot--g"></span>
+          <span class="dot dot--y"></span>
+          <span class="dot dot--r"></span>
+          <div id="tabs" class="tabs"></div>
+          <button id="newtab" class="newtab" title="New shell">+</button>
+        </header>
+        <div id="terms" class="terms"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden" aria-hidden="true">
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card glass" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+      <button class="modal__close" data-close aria-label="Close">×</button>
+      <span class="eyebrow">New</span>
+      <h2 id="modal-title">Connect a new agent</h2>
+      <p class="modal__lead">
+        Paste the token below into <code>rclient-agent install</code> on any
+        Linux box. systemd and OpenRC are auto-detected.
+      </p>
+
+      <label class="modal__label">Connect token</label>
+      <div class="copyrow">
+        <input id="connectblob" type="text" readonly spellcheck="false">
+        <button class="btn btn--ghost" data-copy="#connectblob">Copy</button>
+      </div>
+
+      <label class="modal__label">One-line install command</label>
+      <div class="copyrow">
+        <input id="connectcmd" type="text" readonly spellcheck="false">
+        <button class="btn btn--ghost" data-copy="#connectcmd">Copy</button>
+      </div>
+
+      <p class="modal__hint">
+        The agent binary itself is the same for every device — grab the
+        latest from your release artifacts and drop it on the box.
+      </p>
+    </div>
+  </div>
+
+  <script src="xterm.js"></script>
+  <script src="xterm-addon-fit.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

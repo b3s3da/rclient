@@ -1,0 +1,18 @@
+# Build output
+/build/
+/dist/
+
+# Local secrets — never commit
+deploy/.env
+deploy/agent.env
+**/agent.id
+**/agent.secret
+**/enroll.json
+
+# IDE
+/.vscode/
+/.idea/
+
+# OS noise
+Thumbs.db
+.DS_Store

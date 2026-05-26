@@ -1,0 +1,13 @@
+# Override: bring-your-own certificate.
+# No ACME, no port 80, no DNS API. Caddy reads the cert from a host
+# directory mounted read-only into the container. Useful when:
+#   - you already have a wildcard cert from somewhere else
+#   - your domain isn't on Cloudflare and 80 is busy
+#   - you're on a LAN with a self-signed cert
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "13337:13337"
+    volumes:
+      - ${RCLIENT_CERT_DIR:?set RCLIENT_CERT_DIR in .env}:/certs:ro

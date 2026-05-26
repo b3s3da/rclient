@@ -1,0 +1,41 @@
+# Base compose. By itself this file is incomplete — `setup.sh` adds an
+# override file (compose.dns-cloudflare.yml / compose.http01.yml /
+# compose.byo.yml) via the COMPOSE_FILE env variable in .env, picking the
+# right Caddy image, ports and volumes for the chosen TLS mode.
+services:
+  rclient:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: rclient
+    restart: unless-stopped
+    environment:
+      RCLIENT_LISTEN: ":8080"
+      RCLIENT_AGENT_PATH: ${RCLIENT_AGENT_PATH:?set in .env}
+      RCLIENT_PANEL_PATH: ${RCLIENT_PANEL_PATH:?set in .env}
+      RCLIENT_AGENT_TOKEN: ${RCLIENT_AGENT_TOKEN:?set in .env}
+      RCLIENT_PANEL_USER: ${RCLIENT_PANEL_USER:-admin}
+      RCLIENT_PANEL_PASS: ${RCLIENT_PANEL_PASS:?set in .env}
+    expose:
+      - "8080"
+    volumes:
+      - rclient_state:/var/lib/rclient
+    networks: [edge]
+
+  caddy:
+    container_name: rclient-caddy
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on: [rclient]
+
+networks:
+  edge:
+
+volumes:
+  caddy_data:
+  caddy_config:
+  rclient_state:
